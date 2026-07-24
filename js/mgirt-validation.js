@@ -1,631 +1,546 @@
-// Detect mobile and tablet devices by user agent
-if (/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-  document.body.innerHTML = `
-    <div style="
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      height:100vh; 
-      font-family:sans-serif;
-      text-align:center;
-      padding:20px;
-    ">
-      <h2 style="font-size:clamp(1rem, 5vw, 2rem); color:#d32f2f;">
-        Content is accessible only on desktop (PC).
-      </h2>
-    </div>
-  `;
-}
+window.addEventListener("DOMContentLoaded", async () => {
+  const statusEl           = document.getElementById("mgStatus");
+  const mgIrtFileInput     = document.getElementById("mgIrtFile");
+  const runValidationBtn   = document.getElementById("runValidation");
+  const clearValidationBtn = document.getElementById("mgIrtclearBtn");
+  const clearCacheBtn      = document.getElementById("clearCacheBtn");
+  const resultsContainer   = document.getElementById("validationResults");
 
-// Info popover initialization
-document.addEventListener("DOMContentLoaded", function () {
-  const infoBtn = document.getElementById("infoBtn");
+  // ─── IndexedDB helpers ────────────────────────────────────────────────────────
+  const DB_NAME    = "gsrsdi";
+  const DB_VERSION = 1;
+  const STORE_NAME = "mgirt";
 
-  const popover = new bootstrap.Popover(infoBtn, {
-    html: true,
-    content: "<small>Ready to validate smarter? <br> Click <b>Start</b> to begin.</small>",
-  });
-
-  function updatePopoverMessage(newMessage) {
-    popover.setContent({
-      '.popover-body': newMessage
-    });
-  }
-
-  window.updatePopoverMessage = updatePopoverMessage;
-});
-
-// ─── Active button helper ─────────────────────────────────────────────────────
-function setActiveButton(activeId) {
-  const diBtn             = document.getElementById("diBtn");
-  const mgIrtBtn          = document.getElementById("mgIrtBtn");
-  const mgIrtDownloadItem = document.getElementById("mgIrtDownloadItem");
-
-  if (activeId === "diBtn") {
-    diBtn.classList.add("active");
-    mgIrtBtn.classList.remove("active");
-    document.getElementById("mainContent").style.display = "block";
-    document.getElementById("mgIrtContent").style.display = "none";
-    document.getElementById("issueCount").innerHTML = `
-      <span class="material-icons-outlined me-1" style="font-size:20px;">upload_file</span>
-      <span>Upload DI file</span>
-    `;
-    updatePopoverMessage(`<b><i class="bi bi-info-circle-fill"></i> Severity Guide <br></b><small>🔴 High Severity<br>🟡 Medium Severity</small>`);
-  } else {
-    mgIrtBtn.classList.add("active");
-    diBtn.classList.remove("active");
-    document.getElementById("mainContent").style.display = "none";
-    document.getElementById("mgIrtContent").style.display = "block";
-    document.getElementById("issueCount").innerHTML = `
-      <span class="material-icons-outlined me-1" style="font-size:20px;">upload_file</span>
-      <span>Upload DI & MG/IRT files</span>
-    `;
-    updatePopoverMessage(`<small><b>MG IRT</b> list can be downloaded from <br><b>"More Options"</b> below.</small>`);
-  }
-
-  // Keep toggle visible after start
-  document.getElementById("xlsxToggleWrapper").style.display = "flex";
-}
-
-document.getElementById("diBtn").addEventListener("click", () => setActiveButton("diBtn"));
-document.getElementById("mgIrtBtn").addEventListener("click", () => setActiveButton("mgIrtBtn"));
-
-// ─── Global storage ───────────────────────────────────────────────────────────
-let defectLogs   = [];
-let groupedErrors = {};
-
-// ─── Tab Order ───────────────────────────────────────────────────────────
-const TAB_ORDER = [
-    "Verification Date",
-    "Verification Source",
-    "Incorrect Status",
-    "Banner Rule",
-    "Address Quality",
-    "Address Rule",
-    "Phone",
-    "Store Number",
-    "Null Keyfacts",
-    "BWL State Law",
-    "Food Type",
-    "Null Supplier",
-    "MG/Banner Mismatch",
-    "Incorrect Trade",
-    "Incorrect Exception",
-    "Incorrect Supplier",
-    "Cannabis State Law"
-  ];
-
-// ─── Shared render function ───────────────────────────────────────────────────
-function renderResults() {
-  document.getElementById("diCardHead").classList.remove("bg-secondary");
-  document.getElementById("diCardHead").classList.add("bg-primary");
-
-  const totalIssues = defectLogs.length;
-
-  document.getElementById("diIssueCount").innerHTML = `
-    <span class="material-icons-outlined me-1" style="font-size:20px;">error_outline</span>
-    <span>Total Issues: ${totalIssues}</span>
-  `;
-
-  let nav = `
-    <div class="tabs-wrapper">
-      <button id="scrollLeft" class="scroll-btn">
-        <span class="material-icons">chevron_left</span>
-      </button>
-      <ul id="errorTabs" class="nav nav-pills flex-nowrap" role="tablist">
-  `;
-
-  let content = `<div class="tab-content" id="errorTabsContent">`;
-  let first = true;
-
-  TAB_ORDER.forEach((ruleName, idx) => {
-    if (!groupedErrors[ruleName] || groupedErrors[ruleName].length === 0) return;
-
-    const tabId = `tab-${idx}`;
-    nav += `
-      <li class="nav-item" role="presentation">
-        <button class="nav-link rounded-pill d-flex align-items-center gap-1 ${first ? "active" : ""}"
-                id="${tabId}-tab"
-                data-bs-toggle="tab"
-                data-bs-target="#${tabId}"
-                type="button" role="tab">
-          ${ruleName} <span class="badge rounded-circle">${groupedErrors[ruleName].length}</span>
-        </button>
-      </li>
-    `;
-
-    let extraHeaders = "";
-    if (ruleName === "Verification Date")        extraHeaders = "<th>Verification Date</th>";
-    else if (ruleName === "Verification Source") extraHeaders = "<th>Verification Source</th>";
-    else if (ruleName === "Store Number")        extraHeaders = "<th>Store Number</th>";
-    else if (ruleName === "Address Rule")        extraHeaders = "<th>Address Quality</th>";
-    else if (ruleName === "Phone")               extraHeaders = "<th>Local Trade Channel</th>";
-
-    content += `
-      <div class="tab-pane fade ${first ? "show active" : ""}" id="${tabId}" role="tabpanel">
-        <table class="table table-bordered table-striped mt-3">
-          <thead class="table-light">
-            <tr>
-              <th>Message</th>
-              <th>Local Code</th>
-              <th>Store Status</th>
-              <th>Name</th>
-              <th>Address</th>
-              <th>City</th>
-              <th>State</th>
-              <th>Postal Code</th>
-              <th>Area Code</th>
-              <th>Phone Number</th>
-              ${extraHeaders}
-            </tr>
-          </thead>
-          <tbody>
-    `;
-
-    groupedErrors[ruleName]
-      .sort((a, b) => ({ FAIL: 1, WARN: 2, PASS: 3 }[a.status] - { FAIL: 1, WARN: 2, PASS: 3 }[b.status]))
-      .forEach((err) => {
-        const r = err.rowData;
-        const statusClass =
-          err.status === "FAIL" ? "table-danger" :
-          err.status === "WARN" ? "table-warning" : "";
-
-        let extraCells = "";
-        if (ruleName === "Verification Date")        extraCells = `<td>${r["Verification Date"] || ""}</td>`;
-        else if (ruleName === "Verification Source") extraCells = `<td>${r["Verification Source"] || ""}</td>`;
-        else if (ruleName === "Store Number")        extraCells = `<td>${r["Store Number"] || ""}</td>`;
-        else if (ruleName === "Address Rule")        extraCells = `<td>${r["Address Quality"] || ""}</td>`;
-        else if (ruleName === "Phone")               extraCells = `<td>${r["Local Trade Channel"] || ""}</td>`;
-
-        content += `
-          <tr class="${statusClass}">
-            <td>${err.message}</td>
-            <td>${r["Local Code"] || ""}</td>
-            <td>${r["Status"] || ""}</td>
-            <td>${r["Name"] || ""}</td>
-            <td>${r["Address"] || ""}</td>
-            <td>${r["City"] || ""}</td>
-            <td>${r["State"] || ""}</td>
-            <td>${r["Postal Code"] || ""}</td>
-            <td>${r["Area Code"] || ""}</td>
-            <td>${r["Phone"] || ""}</td>
-            ${extraCells}
-          </tr>
-        `;
-      });
-
-    content += `</tbody></table></div>`;
-    first = false;
-  });
-
-  nav += `
-      </ul>
-      <button id="scrollRight" class="scroll-btn">
-        <span class="material-icons">chevron_right</span>
-      </button>
-    </div>
-  `;
-  content += `</div>`;
-
-  document.getElementById("results").innerHTML = nav + content;
-
-  // Scroll button logic
-  const errorTabs   = document.getElementById("errorTabs");
-  const scrollLeft  = document.getElementById("scrollLeft");
-  const scrollRight = document.getElementById("scrollRight");
-
-  function updateScrollButtons() {
-    const maxScrollLeft = errorTabs.scrollWidth - errorTabs.clientWidth;
-    const atStart = errorTabs.scrollLeft <= 0;
-    const atEnd   = errorTabs.scrollLeft >= maxScrollLeft - 1;
-
-    scrollLeft.disabled  = atStart;
-    scrollRight.disabled = atEnd;
-
-    errorTabs.classList.remove("fade-both", "fade-left", "fade-right");
-    if (!atStart && !atEnd)     errorTabs.classList.add("fade-both");
-    else if (atStart && !atEnd) errorTabs.classList.add("fade-right");
-    else if (!atStart && atEnd) errorTabs.classList.add("fade-left");
-  }
-
-  if (errorTabs && scrollLeft && scrollRight) {
-    updateScrollButtons();
-    errorTabs.addEventListener("scroll", updateScrollButtons);
-    scrollLeft.addEventListener("click", () => {
-      errorTabs.scrollBy({ left: -200, behavior: "smooth" });
-      setTimeout(updateScrollButtons, 300);
-    });
-    scrollRight.addEventListener("click", () => {
-      errorTabs.scrollBy({ left: 200, behavior: "smooth" });
-      setTimeout(updateScrollButtons, 300);
-    });
-  }
-  document.getElementById("copyCodesBtn").classList.remove("d-none");
-}
-
-function showLoader() {
-  document.getElementById("results").innerHTML = `
-    <div style="display:flex; justify-content:center; align-items:center; height:50px;">
-      <div class="spinner-border text-primary" role="status" style="width:1.5rem; height:1.5rem;">
-        <span class="visually-hidden">Loading...</span>
-      </div>
-      <span class="ms-3">Validating file, please wait...</span>
-    </div>
-  `;
-}
-
-// ─── Row normalizer ───────────────────────────────────────────────────────────
-function normalizeRowKeys(row) {
-  const booleanFields = ["Beer", "Wine", "Liquor"];
-  const codeFields    = ["Local Code"];
-  const stringFields  = ["Store Number"];
-
-  const normalized = {};
-  for (const key in row) {
-    const cleanKey = key.trim();
-    let val = row[key];
-
-    // Normalize booleans
-    if (booleanFields.includes(cleanKey)) {
-      if (val === true || val === "true" || val === "TRUE" || val === 1 || val === "1" || val === "Yes") {
-        val = "[Y] Yes";
-      } else if (val === false || val === "false" || val === "FALSE" || val === 0 || val === "0" || val === "No") {
-        val = "[N] No";
-      }
-    }
-
-    // Force Store Number to string (preserve leading zeros)
-    if (stringFields.includes(cleanKey) && val !== undefined && val !== null) {
-      val = String(val).trim();
-    }
-
-    // Convert numbers to strings
-    if (typeof val === "number") val = val.toString();
-
-    // Trim strings
-    if (typeof val === "string") val = val.trim();
-
-    val = val ?? "";
-
-    // Pad code fields to 6 digits
-    if (codeFields.includes(cleanKey) && val !== "") {
-      val = val.padStart(7, "0");
-    }
-
-    normalized[cleanKey] = val;
-  }
-  return normalized;
-}
-
-const REQUIRED_HEADERS = [
-  "Local Code",
-  "Store Number",
-  "Status",
-  "Name",
-  "Address",
-  "City",
-  "State",
-  "Postal Code",
-  "Area Code",
-  "Phone"
-];
-
-function validateHeaders(data) {
-  if (!data || data.length === 0) return false;
-  const firstRow = data[0];
-  const keys = Object.keys(firstRow).map(k => k.trim());
-
-  const missing = REQUIRED_HEADERS.filter(h => !keys.includes(h));
-  if (missing.length > 0) {
-    alert("⚠️ Invalid DI file. Missing required columns." );
-    document.getElementById("results").innerHTML = "Upload DI file to display defects";
-    document.getElementById("csvFile").value = "";
-    document.getElementById("diCardHead").classList.remove("bg-primary");
-    document.getElementById("diCardHead").classList.add("bg-secondary");
-    document.getElementById("diIssueCount").innerHTML = "";
-    return false;
-  }
-  return true;
-}
-
-// ─── Row processor (shared by CSV and Excel paths) ────────────────────────────
-function processRows(data) {
-
-  groupedErrors = {};
-  defectLogs    = [];
-
-  data.forEach((rawRow) => {
-    const row = normalizeRowKeys(rawRow);
-    rules.forEach((rule) => {
-      const r = rule(row);
-      if (r.status !== "PASS") {
-        if (!groupedErrors[r.rule]) groupedErrors[r.rule] = [];
-        groupedErrors[r.rule].push({
-          status:  r.status,
-          message: r.message,
-          rowData: row,
-        });
-
-        defectLogs.push({
-          Rule:            r.rule,
-          Status:          r.status,
-          Message:         r.message,
-          "Local Code":    row["Local Code"] || "",
-          "Store Status":  row["Status"] || "",
-          Name:            row["Name"] || "",
-          Address:         row["Address"] || "",
-          City:            row["City"] || "",
-          State:           row["State"] || "",
-          "Postal Code":   row["Postal Code"] || "",
-          "Area Code":     row["Area Code"] || "",
-          "Phone Number":  row["Phone"] || "",
-          ...(r.rule === "Verification Date"
-            ? { "Verification Date": row["Verification Date"] || "" }
-            : {}),
-          ...(r.rule === "Verification Source"
-            ? { "Verification Source": row["Verification Source"] || "" }
-            : {}),
-          ...(r.rule === "Address Rule"
-            ? { "Address Quality": row["Address Quality"] || "" }
-            : {}),
-          ...(r.rule === "Phone"
-            ? { "Phone Number": row["Local Trade Channel"] || "" }
-            : {}),
-        });
-      }
-    });
-  });
-
-  if (defectLogs.length === 0) {
-    document.getElementById("diCardHead").classList.remove("bg-secondary");
-    document.getElementById("diCardHead").classList.add("bg-primary");
-    document.getElementById("copyCodesBtn").classList.add("d-none");
-
-    const totalIssues = defectLogs.length;
-
-    document.getElementById("diIssueCount").innerHTML = `
-      <span class="material-icons-outlined me-1" style="font-size:20px;">error_outline</span>
-      <span>Total Issues: ${totalIssues}</span>
-    `;
-    document.getElementById("results").innerHTML =
-      '<div class="alert alert-success mt-3 text-center">No defects found 🎉</div>';
-    return;
-  }
-
-  renderResults();
-}
-
-// ─── CSV validation ───────────────────────────────────────────────────────────
-function runValidation(file) {
-  Papa.parse(file, {
-    header: true,
-    skipEmptyLines: true,
-    dynamicTyping: false,
-    complete: function (results) {
-      const data = results.data;
-      if (!validateHeaders(data)) {
-        return;
-      }
-      showLoader();
-      setTimeout(() => {
-        processRows(results.data);
-      }, 500);
-    },
-  });
-}
-
-// ─── Excel validation ─────────────────────────────────────────────────────────
-function runXlsxValidation(file) {
-  const reader = new FileReader();
-  reader.onload = function (e) {
-    const wb   = XLSX.read(new Uint8Array(e.target.result), { type: "array" });
-    const ws   = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
-
-    if (!rows || rows.length === 0) {
-      document.getElementById("results").innerHTML =
-        '<div class="alert alert-warning mt-3">No data found in the Excel file.</div>';
-      return;
-    }
-
-    if (!validateHeaders(rows)) {
-      return;
-    }
-
-    showLoader();
-    setTimeout(() => {
-      processRows(rows);
-    }, 500);
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-// ─── File input change handler ────────────────────────────────────────────────
-document.getElementById("csvFile").addEventListener("change", function (e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const isXlsx = document.getElementById("xlsxToggle").checked;
-
-  if (isXlsx) {
-    if (!file.name.match(/\.(xlsx|xls)$/i)) {
-      alert("XLSX Mode is on. Please upload an Excel file (.xlsx or .xls).");
-      this.value = "";
-      return;
-    }
-    runXlsxValidation(file);
-  } else {
-    if (file.type !== "text/csv" && !file.name.endsWith(".csv")) {
-      alert("Invalid file type. Please upload a CSV file.");
-      this.value = "";
-      return;
-    }
-    runValidation(file);
-  }
-});
-
-// ─── Export button ────────────────────────────────────────────────────────────
-document.getElementById("exportBtn").addEventListener("click", function () {
-  function safeSheetName(name) {
-    return name.replace(/[:\\/?*\[\]]/g, "_").substring(0, 31);
-  }
-
-  if (!groupedErrors || Object.keys(groupedErrors).length === 0) {
-    alert("No defect logs to export!");
-    return;
-  }
-
-  const workbook = XLSX.utils.book_new();
-
-  Object.keys(groupedErrors).forEach((ruleName) => {
-    const rows = groupedErrors[ruleName].map((err) => {
-      const r = err.rowData;
-      return {
-        Message:               err.message,
-        "Local Code":          r["Local Code"] || "",
-        "Store Status":        r["Status"] || "",
-        Name:                  r["Name"] || "",
-        Address:               r["Address"] || "",
-        City:                  r["City"] || "",
-        State:                 r["State"] || "",
-        "Postal Code":         r["Postal Code"] || "",
-        "Area Code":           r["Area Code"] || "",
-        "Phone Number":        r["Phone"] || "",
-        "Verification Date":   r["Verification Date"] || "",
-        "Verification Source": r["Verification Source"] || "",
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = (e) => {
+        e.target.result.createObjectStore(STORE_NAME);
       };
+      req.onsuccess = (e) => resolve(e.target.result);
+      req.onerror   = (e) => reject(e.target.error);
     });
+  }
 
-    if (rows.length > 0) {
-      const worksheet = XLSX.utils.json_to_sheet(rows);
-      XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(ruleName));
+  async function saveToDB(data) {
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    tx.objectStore(STORE_NAME).put(data, "mgirt_data");
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror    = (e) => reject(e.target.error);
+    });
+  }
+
+  async function loadFromDB() {
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, "readonly");
+    return new Promise((resolve, reject) => {
+      const req = tx.objectStore(STORE_NAME).get("mgirt_data");
+      req.onsuccess = (e) => resolve(e.target.result || null);
+      req.onerror   = (e) => reject(e.target.error);
+    });
+  }
+
+  async function clearDB() {
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    tx.objectStore(STORE_NAME).delete("mgirt_data");
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror    = (e) => reject(e.target.error);
+    });
+  }
+
+  // ─── Required headers ─────────────────────────────────────────────────────────
+    const REQUIRED_DI_HEADERS     = ["Local Code", "Name", "Address", "City", "Postal Code", "Area Code", "Phone", "State", "Status", "MG Local Code", "IRT Local Code"];
+    const REQUIRED_MGIRT_HEADERS  = ["ACCOUNT_NAME", "TDLINX_ACCOUNT_CODE", "ACC_IMMEDIATE_REPORT_TO"];
+
+    // ─── Header validator ─────────────────────────────────────────────────────────
+    function validateHeaders(actualHeaders, requiredHeaders) {
+      const trimmed = actualHeaders.map(h => h.trim());
+      const missing = requiredHeaders.filter(r => !trimmed.includes(r));
+      return missing;
+    }
+
+    async function reloadMgIrtData() {
+      try {
+        const cached = await loadFromDB();
+        if (cached && cached.length > 0) {
+          mgIrtData = cached;
+          statusEl.innerHTML = `<span class="badge badge-custom-success rounded-pill"><i class="bi bi-check-circle-fill me-1"></i>MG & IRT loaded from cache (${mgIrtData.length} records)</span>`;
+          document.getElementById("clearCacheItem").style.display = "block";
+        } else {
+          statusEl.innerHTML = `<span class="badge bg-warning text-dark rounded-pill"><i class="bi bi-arrow-up-circle-fill me-1"></i>Please upload MG & IRT file</span>`;
+        }
+      } catch (err) {
+        console.error("IndexedDB load error:", err);
+        statusEl.innerHTML = `<span class="badge bg-warning text-dark rounded-pill"><i class="bi bi-upload me-1"></i>Please upload MG & IRT file</span>`;
+      }
+    }
+
+  // ─── Normalizers ──────────────────────────────────────────────────────────────
+  function normalizeNameBase(name) {
+    return (name || "")
+      .replace(/\/[A-Z]{2}$/, "") // strip state/EM suffix e.g. /NM /KS /EM
+      .toLowerCase()
+      .replace(/\s*&\s*/g, " and ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function normalizeCode(code) {
+    return (code || "").toString().trim();
+  }
+
+  // ─── Row normalizer ───────────────────────────────────────────────────────────
+  function normalizeRow(row) {
+    const sixDigitFields = [
+      "TDLINX_ACCOUNT_CODE",
+      "ACC_IMMEDIATE_REPORT_TO",
+      "MG Local Code",
+      "IRT Local Code",
+      "Local Code"
+    ];
+
+    const sevenDigitFields = [
+      "Local Code"
+    ];
+
+    const normalized = {};
+    for (const key in row) {
+      const cleanKey = key.trim();
+      let val = row[key];
+      if (typeof val === "number") val = val.toString();
+      if (typeof val === "string") val = val.trim();
+      if (val === null || val === undefined) val = "";
+
+      // Pad code fields to 6 digits
+      if (sixDigitFields.includes(cleanKey) && val !== "") {
+        val = val.padStart(6, "0");
+      }
+
+      // Pad code fields to 7 digits
+      if (sevenDigitFields.includes(cleanKey) && val !== "") {
+        val = val.padStart(7, "0");
+      }
+      
+      normalized[cleanKey] = val;
+    }
+    return normalized;
+  }
+
+  // ─── Load from IndexedDB on startup ──────────────────────────────────────────
+  let mgIrtData = null;
+  statusEl.innerHTML = `<span class="badge bg-secondary rounded-pill"><i class="bi bi-hourglass-split me-1"></i>Loading MG & IRT data...</span>`;
+
+  try {
+    const cached = await loadFromDB();
+    if (cached && cached.length > 0) {
+      mgIrtData = cached;
+      statusEl.innerHTML = `<span class="badge badge-custom-success rounded-pill"><i class="bi bi-check-circle-fill me-1"></i>MG & IRT loaded from cache (${mgIrtData.length} records)</span>`;
+      document.getElementById("clearCacheItem").style.display = "block";
+    } else {
+      statusEl.innerHTML = `<span class="badge bg-warning text-dark rounded-pill"><i class="bi bi-arrow-up-circle-fill me-1"></i>Please upload MG & IRT file</span>`;
+    }
+  } catch (err) {
+    console.error("IndexedDB load error:", err);
+    statusEl.innerHTML = `<span class="badge bg-warning text-dark rounded-pill"><i class="bi bi-arrow-up-circle-fill me-1"></i>Please upload MG & IRT file</span>`;
+  }
+
+  // ─── MG/IRT file upload (CSV or Excel) ───────────────────────────────────────
+  mgIrtFileInput.addEventListener("change", (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const isExcel = /\.(xlsx|xls)$/i.test(file.name);
+
+    if (isExcel) {
+      statusEl.innerHTML = `<span class="badge bg-secondary rounded-pill"><i class="bi bi-hourglass-split me-1"></i>Reading Excel file...</span>`;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        setTimeout(() => {
+          const wb = XLSX.read(new Uint8Array(e.target.result), {
+            type:        "array",
+            cellFormula: false,
+            cellHTML:    false,
+            cellStyles:  false,
+            cellDates:   false,
+            sheetStubs:  false,
+          });
+          const ws  = wb.Sheets[wb.SheetNames[0]];
+          mgIrtData = XLSX.utils.sheet_to_json(ws, { defval: "" });
+          if (mgIrtData.length === 0) {
+            alert("☹️ No data found in the MG & IRT file. Please check the file and try again.");
+            mgIrtFileInput.value = "";
+            reloadMgIrtData();
+            return;
+          }
+
+          const missing = validateHeaders(Object.keys(mgIrtData[0]), REQUIRED_MGIRT_HEADERS);
+          if (missing.length > 0) {
+            alert(`❗ Invalid MG & IRT file. Please check the file and try again.`);
+            mgIrtFileInput.value = "";
+            reloadMgIrtData();
+            return;
+          }
+
+          saveToDB(mgIrtData).catch(err => console.error("IndexedDB save error:", err));
+          document.getElementById("clearCacheItem").style.display = "none";
+          statusEl.innerHTML = `<span class="badge badge-custom-success rounded-pill"><i class="bi bi-check-circle-fill me-1"></i>Using uploaded MG & IRT file (${mgIrtData.length} records)</span>`;
+        }, 50);
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      statusEl.innerHTML = `<span class="badge bg-secondary rounded-pill"><i class="bi bi-hourglass-split me-1"></i>Reading CSV file...</span>`;
+      Papa.parse(file, {
+        header: true,
+        complete: (r) => {
+          if (!r.data || r.data.length === 0) {
+            alert("☹️ No data found in the MG & IRT file. Please check the file and try again.");
+            mgIrtFileInput.value = "";
+            reloadMgIrtData();
+            return;
+          }
+
+          const missing = validateHeaders(r.meta.fields || [], REQUIRED_MGIRT_HEADERS);
+          if (missing.length > 0) {
+            alert(`❗ Invalid MG & IRT file. Please check the file and try again.`);
+            mgIrtFileInput.value = "";
+            reloadMgIrtData();
+            return;
+          }
+
+          mgIrtData = r.data;
+          saveToDB(mgIrtData).catch(err => console.error("IndexedDB save error:", err));
+          document.getElementById("clearCacheItem").style.display = "none";
+          statusEl.innerHTML = `<span class="badge badge-custom-success rounded-pill"><i class="bi bi-check-circle-fill me-1"></i>Using uploaded MG & IRT file (${mgIrtData.length} records)</span>`;
+        },
+      });
     }
   });
 
-  if (workbook.SheetNames.length === 0) {
-    const ws = XLSX.utils.aoa_to_sheet([["No defects found"]]);
-    XLSX.utils.book_append_sheet(workbook, ws, "Summary");
-  }
-
-  const today = new Date();
-  const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  XLSX.writeFile(workbook, `DI_DefectLogs_${dateStr}.xlsx`);
-});
-
-// ─── Clear button ─────────────────────────────────────────────────────────────
-document.getElementById("clearBtn").addEventListener("click", function () {
-  document.getElementById("csvFile").value = "";
-  document.getElementById("diCardHead").classList.remove("bg-primary");
-  document.getElementById("diCardHead").classList.add("bg-secondary");
-  document.getElementById("results").innerHTML = "Upload DI file to display defects";
-  document.getElementById("diIssueCount").innerHTML = "";
-
-  defectLogs    = [];
-  groupedErrors = {};
-
-  // Reset label to match current toggle state
-  const isXlsx = document.getElementById("xlsxToggle").checked;
-  document.getElementById("fileInputLabel").textContent = isXlsx ? "Upload DI File (Excel)" : "Upload DI File";
-});
-
-// ─── Start button ─────────────────────────────────────────────────────────────
-document.getElementById("startBtn").addEventListener("click", function () {
-  document.getElementById("slideshow").classList.add("hidden");
-
-  document.getElementById("issueCount").innerHTML = `
-    <span class="material-icons-outlined me-1" style="font-size:20px;">upload_file</span>
-    <span>Upload DI file</span>
-  `;
-
-  this.style.display = "none";
-
-  document.getElementById("diBtn").style.display    = "inline-block";
-  document.getElementById("mgIrtBtn").style.display = "inline-block";
-  document.getElementById("xlsxToggleWrapper").style.display = "flex";
-
-  setActiveButton("diBtn");
-
-  document.querySelectorAll(".card").forEach(card => {
-    card.classList.add("show");
-  });
-});
-
-// ─── XLSX toggle ──────────────────────────────────────────────────────────────
-document.getElementById("xlsxToggle").addEventListener("change", function () {
-  this.blur();
-  const isXlsx = this.checked;
-
-  // ── DI Validation inputs ──
-  const csvInput = document.getElementById("csvFile");
-  const label    = document.getElementById("fileInputLabel");
-
-  csvInput.value = "";
-  groupedErrors  = {};
-  defectLogs     = [];
-
-  if (isXlsx) {
-    csvInput.setAttribute("accept", ".xlsx,.xls");
-    label.textContent = "Upload DI File (Excel)";
-    document.getElementById("results").innerHTML = "Upload DI Excel file to display defects";
-  } else {
-    csvInput.setAttribute("accept", ".csv");
-    label.textContent = "Upload DI File";
-    document.getElementById("results").innerHTML = "Upload DI file to display defects";
-  }
-
-  document.getElementById("diCardHead").classList.remove("bg-primary");
-  document.getElementById("diCardHead").classList.add("bg-secondary");
-  document.getElementById("diIssueCount").innerHTML = "";
-
-  // ── MG & IRT inputs ──
-  const mgDiInput  = document.getElementById("diFile");
-  const mgIrtInput = document.getElementById("mgIrtFile");
-  const mgDiLabel  = document.getElementById("mgDiFileLabel");
-
-  mgDiInput.value  = "";
-  mgIrtInput.value = "";
-
-  if (isXlsx) {
-    mgDiInput.setAttribute("accept", ".xlsx,.xls");
-    mgIrtInput.setAttribute("accept", ".csv,.xlsx,.xls");
-    mgDiLabel.textContent = "Upload DI File (Excel)";
-  } else {
-    mgDiInput.setAttribute("accept", ".csv");
-    mgIrtInput.setAttribute("accept", ".csv,.xlsx,.xls");
-    mgDiLabel.textContent = "Upload DI File";
-  }
-
-  document.getElementById("validationResults").innerHTML = "Upload DI file and click validate to display matches";
-  document.getElementById("mgIssueCount").innerHTML = "";
-  document.getElementById("mgIrtCardHead").classList.remove("bg-primary");
-  document.getElementById("mgIrtCardHead").classList.add("bg-secondary");
-});
-
-// Copy button handler
-const copyBtn = document.getElementById("copyCodesBtn");
-const toastEl = document.getElementById("copyToast");
-const toastMessage = document.getElementById("copyToastMessage");
-
-copyBtn.addEventListener("click", function () {
-  const activeTab = document.querySelector("#errorTabs .nav-link.active");
-  if (!activeTab) return;
-
-  const tabId = activeTab.getAttribute("data-bs-target").replace("#", "");
-  const idx = parseInt(tabId.split("-")[1], 10);
-  const ruleName = TAB_ORDER[idx];
-
-  const codes = (groupedErrors[ruleName] || [])
-    .map(err => err.rowData["Local Code"])
-    .filter(code => code && code.trim() !== "")
-    .join(",");
-
-  if (codes) {
-    navigator.clipboard.writeText(codes).then(() => {
-      toastMessage.innerHTML = `Local Codes for <strong>${ruleName}</strong> copied successfully!`;
-      new bootstrap.Toast(toastEl, { delay: 2000 }).show();
+  // ─── Clear cache button ───────────────────────────────────────────────────────
+  clearCacheBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    clearDB().then(() => {
+      mgIrtData = null;
+      document.getElementById("clearCacheItem").style.display = "none";
+      statusEl.innerHTML = `<span class="badge bg-warning text-dark rounded-pill"><i class="bi bi-arrow-up-circle-fill me-1"></i>Please upload MG & IRT file</span>`;
+    }).catch(err => {
+      console.error("Error clearing cache:", err);
     });
-  } else {
-    toastMessage.innerHTML = `No Local Codes found for <strong>${ruleName}</strong>.`;
-    new bootstrap.Toast(toastEl, { delay: 2000 }).show();
+  });
+
+  // Partial Match
+  function findMgCandidatesByPartialName(diNameNorm, mgMapByName) {
+    let candidates = mgMapByName.get(diNameNorm);
+    if (candidates) return candidates;
+
+    // fallback: search keys for substring match
+    for (let [mgNameNorm, mgRows] of mgMapByName.entries()) {
+      if (diNameNorm.includes(mgNameNorm) || mgNameNorm.includes(diNameNorm)) {
+        return mgRows;
+      }
+    }
+    return null;
+  }
+
+  // ─── Best MG entry picker (state + EM aware) ──────────────────────────────────
+  function pickBestMgEntry(candidates, diState, diTrade) {
+    if (!candidates || candidates.length === 0) return null;
+
+    const emTrades = ["[09] Unknown Retailers", "[59] Unknown On-Premise"];
+
+    // If trade is EM-eligible, try /EM first
+    if (emTrades.includes(diTrade)) {
+      const emMatch = candidates.find(c => c.stateSuffix === "EM");
+      if (emMatch) return emMatch.row;
+    }
+
+    // Try state-specific match
+    if (diState) {
+      const stateMatch = candidates.find(c => c.stateSuffix === diState);
+      if (stateMatch) return stateMatch.row;
+    }
+
+    // Fall back to first match
+    return candidates[0].row;
+  }
+
+  // ─── Shared matching logic ────────────────────────────────────────────────────
+  function processMgIrtMatches(diData, mgIrtData, resultsContainer) {
+    let matches = [];
+
+    const mgMapByName = new Map();
+    const mgMapByCode = new Map();
+
+    // Build reference maps
+    mgIrtData.forEach((rawRow) => {
+      const row      = normalizeRow(rawRow);
+      const fullName = (row["ACCOUNT_NAME"] || "").trim();
+      const normCode = normalizeCode(row["TDLINX_ACCOUNT_CODE"]);
+
+      // Extract state/EM suffix e.g. "Pic Quick/NM" → "NM", "Store/EM" → "EM"
+      const stateSuffixMatch = fullName.match(/\/([A-Z]{2})$/);
+      const stateSuffix      = stateSuffixMatch ? stateSuffixMatch[1] : null;
+      const baseName         = normalizeNameBase(fullName);
+
+      // Group by base name with suffix info
+      if (!mgMapByName.has(baseName)) mgMapByName.set(baseName, []);
+      mgMapByName.get(baseName).push({ row, stateSuffix });
+
+      if (normCode) mgMapByCode.set(normCode, row);
+    });
+
+    // Match DI rows
+    diData.forEach((rawRow) => {
+      const diRow           = normalizeRow(rawRow);
+      const diName          = (diRow["Name"] || "").trim();
+      const diNameNorm      = normalizeNameBase(diName);
+      const mgLocalCodeNorm = normalizeCode(diRow["MG Local Code"]);
+      const irtLocalCode    = (diRow["IRT Local Code"] || "").trim();
+      const diTrade         = (diRow["Local Trade Channel"] || "").trim();
+
+      // Extract state code from DI state field e.g. "[NM] New Mexico" → "NM"
+      const diStateMatch = (diRow["State"] || "").match(/\[([A-Z]{2})\]/);
+      const diState      = diStateMatch ? diStateMatch[1] : null;
+
+      if (!mgLocalCodeNorm && !irtLocalCode && diNameNorm && mgMapByName.has(diNameNorm)) {
+        // Strategy 1: name match with state + EM aware selection
+        const candidates = findMgCandidatesByPartialName(diNameNorm, mgMapByName);
+        const mgRow      = pickBestMgEntry(candidates, diState, diTrade);
+        if (mgRow) {
+          matches.push({
+            diId:     diRow["Local Code"],
+            diName,
+            diStatus: diRow["Status"],
+            mgName:   mgRow["ACCOUNT_NAME"],
+            mgId:     mgRow["TDLINX_ACCOUNT_CODE"],
+            irtId:    mgRow["ACC_IMMEDIATE_REPORT_TO"],
+          });
+        }
+      } else if (mgLocalCodeNorm && !irtLocalCode) {
+        // Strategy 2: MG code match (fallback to name)
+        const mgRowByCode = mgMapByCode.get(mgLocalCodeNorm);
+        const candidates  = findMgCandidatesByPartialName(diNameNorm, mgMapByName);
+        const mgRowByName = pickBestMgEntry(candidates, diState, diTrade);
+        const mgRow       = mgRowByCode || mgRowByName;
+        if (mgRow && mgRow["ACC_IMMEDIATE_REPORT_TO"]) {
+          matches.push({
+            diId:     diRow["Local Code"],
+            diName,
+            diStatus: diRow["Status"],
+            mgName:   mgRow["ACCOUNT_NAME"],
+            mgId:     mgRow["TDLINX_ACCOUNT_CODE"],
+            irtId:    mgRow["ACC_IMMEDIATE_REPORT_TO"],
+          });
+        }
+      } else if (!mgLocalCodeNorm && irtLocalCode) {
+        // Strategy 3: IRT present, MG missing — match by name
+        const candidates  = findMgCandidatesByPartialName(diNameNorm, mgMapByName);
+        const mgRowByName = pickBestMgEntry(candidates, diState, diTrade);
+        if (mgRowByName) {
+          matches.push({
+            diId:     diRow["Local Code"],
+            diName,
+            diStatus: diRow["Status"],
+            mgName:   mgRowByName["ACCOUNT_NAME"] || "Missing MG",
+            mgId:     mgRowByName["TDLINX_ACCOUNT_CODE"] || "Missing MG",
+            irtId:    irtLocalCode,
+          });
+        }
+      }
+    });
+
+      resultsContainer.innerHTML = buildResultsTable(matches);
+
+      document.getElementById("mgIssueCount").innerHTML = `
+        <span class="material-icons-outlined me-1" style="font-size:20px;">error_outline</span>
+        <span>Total Matches: ${matches.length}</span>
+      `;
+
+  }
+
+  // ─── Validate button ──────────────────────────────────────────────────────────
+  runValidationBtn.addEventListener("click", async () => {
+    const diFile  = document.getElementById("diFile").files[0];
+    if (!diFile) {
+      alert("Please upload the DI file.");
+      return;
+    }
+
+    const isExcelFile = /\.(xlsx|xls)$/i.test(diFile.name);
+    const isCsvFile   = /\.csv$/i.test(diFile.name) || diFile.type === "text/csv";
+    const isXlsx      = document.getElementById("xlsxToggle").checked;
+
+    // File type guards
+    if (isExcelFile && !isXlsx) {
+      alert("Please turn on XLSX Mode to upload an Excel file.");
+      return;
+    }
+    if (isCsvFile && isXlsx) {
+      alert("XLSX Mode is on. Please upload an Excel file (.xlsx or .xls).");
+      return;
+    }
+    if (!isExcelFile && !isCsvFile) {
+      alert("Invalid file type. Please upload a CSV or Excel (.xlsx) file.");
+      return;
+    }
+
+    if (!mgIrtData) {
+      alert("MG & IRT data not available. Please upload your MG & IRT file. Get the file from 'More Options' below");
+      return;
+    }
+
+    // Setup loader
+    function showLoader() {
+      document.getElementById("validationResults").innerHTML = `
+        <div style="display:flex; justify-content:center; align-items:center; height:50px;">
+          <div class="spinner-border text-primary" role="status" style="width:1.5rem; height:1.5rem;">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <span class="ms-3">Matching DI file against MG/IRT data...</span>
+        </div>
+      `;
+    }
+
+    function showNotificationToast() {
+      const statusBar = document.getElementById("statusBar"); // your bar element
+      const toastContainer = document.getElementById("notifyContainer");
+
+      if (statusBar && toastContainer) {
+        const barHeight = statusBar.offsetHeight;
+        toastContainer.style.bottom = `${barHeight + 16}px`; // 16px gap above bar
+      }
+
+      const toastEl = document.getElementById("notifyToast");
+      const toast = new bootstrap.Toast(toastEl, { autohide: true, delay: 3000 });
+      toast.show();
+    }
+
+    // Parse DI file and run matching
+    if (isExcelFile) {
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        setTimeout(() => {
+          const wb     = XLSX.read(new Uint8Array(e.target.result), { type: "array" });
+          const ws     = wb.Sheets[wb.SheetNames[0]];
+          const diData = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+          if (diData.length === 0) {
+            alert("☹️ No data found in the DI file. Please check the file and try again.");
+            document.getElementById("diFile").value = "";
+            return;
+          }
+
+          const missing = validateHeaders(Object.keys(diData[0]), REQUIRED_DI_HEADERS);
+          if (missing.length > 0) {
+            alert(`❗ Invalid DI file. Please check the file and try again.`);
+            document.getElementById("diFile").value = "";
+            return;
+          }
+
+          showLoader();
+          setTimeout(() => {
+            showNotificationToast();
+            processMgIrtMatches(diData, mgIrtData, resultsContainer);
+          }, 450);
+        }, 50);
+      };
+      reader.readAsArrayBuffer(diFile);
+    } else {
+      
+      Papa.parse(diFile, {
+        header: true,
+        complete: (r) => {
+          if (!r.data || r.data.length === 0) {
+            alert("No data found in the DI file. Please check the file and try again.");
+            document.getElementById("diFile").value = "";
+            return;
+          }
+
+          const missing = validateHeaders(r.meta.fields || [], REQUIRED_DI_HEADERS);
+          if (missing.length > 0) {
+            alert(`❗ Invalid DI file. Please check the file and try again.`);
+            document.getElementById("diFile").value = "";
+            return;
+          }
+
+          showLoader();
+          setTimeout(() => {
+            showNotificationToast();
+            processMgIrtMatches(r.data, mgIrtData, resultsContainer);
+          }, 500);
+        },
+      });
+    }
+  });
+
+  // ─── Clear button ─────────────────────────────────────────────────────────────
+  clearValidationBtn.addEventListener("click", async () => {
+    resultsContainer.innerHTML = "Upload DI file and click validate to display matches";
+    document.getElementById("mgIssueCount").innerHTML = "";
+    document.getElementById("diFile").value = "";
+    mgIrtFileInput.value = "";
+    try {
+    const cached = await loadFromDB();
+    if (cached && cached.length > 0) {
+      mgIrtData = cached;
+      statusEl.innerHTML = `<span class="badge badge-custom-success rounded-pill"><i class="bi bi-check-circle-fill me-1"></i>MG & IRT loaded from cache (${mgIrtData.length} records)</span>`;
+      document.getElementById("clearCacheItem").style.display = "block";
+    } else {
+      statusEl.innerHTML = `<span class="badge bg-warning text-dark rounded-pill"><i class="bi bi-arrow-up-circle-fill me-1"></i>Please upload MG & IRT file</span>`;
+    }
+  } catch (err) {
+    console.error("IndexedDB load error:", err);
+    statusEl.innerHTML = `<span class="badge bg-warning text-dark rounded-pill"><i class="bi bi-upload me-1"></i>Please upload MG & IRT file</span>`;
+  }
+    document.getElementById("mgIrtCardHead").classList.remove("bg-primary");
+    document.getElementById("mgIrtCardHead").classList.add("bg-secondary");
+  });
+
+  // ─── Results table builder ────────────────────────────────────────────────────
+  function buildResultsTable(matches) {
+    document.getElementById("mgIrtCardHead").classList.remove("bg-secondary");
+    document.getElementById("mgIrtCardHead").classList.add("bg-primary");
+
+    if (matches.length === 0) {
+      document.getElementById("mgIssueCount").innerHTML = `
+        <span class="material-icons-outlined me-1" style="font-size:20px;">error_outline</span>
+        <span>Total Matches: 0</span>
+      `;
+      return `
+        <div class="alert alert-success mt-3 text-center">
+          No matches found!
+        </div>
+      `;
+    }
+
+    return `
+      <table class="table table-bordered table-striped mt-3">
+        <thead class="table-light">
+          <tr>
+            <th>Store Status</th>
+            <th>Local Code (DI)</th>
+            <th>Name (DI)</th>
+            <th>MG Account ID</th>
+            <th>IRT Account ID</th>
+            <th>MG Account Name</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${matches.map(m => `
+            <tr class="table-warning">
+              <td>${m.diStatus}</td>
+              <td>${m.diId}</td>
+              <td>${m.diName}</td>
+              <td>${m.mgId}</td>
+              <td>${m.irtId}</td>
+              <td>${m.mgName}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    `;
   }
 });
