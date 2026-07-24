@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>GSRS DI Validation</title>
+<!-- Standard favicon -->
+<link rel="icon" type="image/png" href="assets/favicon.png" />
+<!-- Optional sizes for better support -->
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png" />
+<link rel="preload" as="image" href="assets/background.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="slideshow">
+  <div class="slideshow-bg"></div>
+  <div class="slide" style="background-image: url(&quot;assets/bugs.png&quot;)"></div>
+  <div class="slide" style="background-image: url(&quot;assets/title.png&quot;)"></div>
+</div>
+
+<!-- Title Bar -->
+<nav id="titleBar" class="navbar fixed-top">
+  <div class="container-fluid">
+    <span class="navbar-brand mb-0 h1" style="font-family: Montserrat;">
+      GSRS DI VALIDATION
+    </span>
+    <div class="d-flex align-items-center">
+      <button id="startBtn" class="btn rounded-pill fw-bold me-2">
+        Start
+      </button>
+      <button id="diBtn" class="btn switch-validation-btn rounded-pill fw-bold me-2" style="display: none">
+        DI Validation
+      </button>
+      <button id="mgIrtBtn" class="btn switch-validation-btn rounded-pill fw-bold" style="display: none">
+        MG & IRT Validation
+      </button>
+    </div>
+  </div>
+</nav>
+
+<!-- Spacer so content isn't hidden behind fixed bar -->
+<div style="margin-top: 50px"></div>
+
+<!-- DI Validation Section -->
+<div id="mainContent" class="container py-5">
+  <div class="card shadow-sm mb-4">
+    <div class="card-body d-flex align-items-end">
+      <!-- File input block -->
+      <div class="flex-grow-1 me-3 d-flex flex-column">
+        <label for="csvFile" class="form-label" id="fileInputLabel">Upload DI File</label>
+        <input type="file" id="csvFile" class="form-control rounded-pill" accept=".csv" />
+      </div>
+      <!-- Buttons aligned to bottom -->
+      <button id="clearBtn" class="btn btn-secondary rounded-pill d-flex align-items-center fw-bold">
+        <span class="material-icons fs-4">refresh</span>
+      </button>
+      <button id="exportBtn" class="btn btn-custom rounded-pill d-flex align-items-center fw-bold ms-2">
+        <span class="material-icons fs-4">file_download</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div id="diCardHead" class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+      <span>DI Validation - Defect Log</span>
+      <div class="d-flex align-items-center gap-2">
+        <button id="copyCodesBtn" class="btn btn-sm btn-outline-light rounded-pill d-flex align-items-center gap-1 d-none">
+          <span class="material-icons-outlined" style="font-size:16px;">content_copy</span>
+          <b>Copy Local Codes</b>
+        </button>
+        <span id="diIssueCount" class="d-flex align-items-center"></span>
+      </div>
+    </div>
+    <div class="card-body">
+      <div id="results" class="table-responsive">
+        Upload DI file to display defects
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MG & IRT Validation Section -->
+<div id="mgIrtContent" class="container py-5" style="display: none">
+  <div class="card shadow-sm mb-4">
+    <div class="card-body d-flex align-items-end">
+      <div class="flex-grow-1 me-3 d-flex flex-column">
+        <label for="diFile" class="form-label" id="mgDiFileLabel">Upload DI File</label>
+        <input type="file" id="diFile" class="form-control rounded-pill" accept=".csv" />
+      </div>
+      <div class="flex-grow-1 me-3 d-flex flex-column">
+        <label for="mgIrtFile" class="form-label"><span id="mgStatus" class=""><span class="badge bg-warning rounded-pill"><i class="bi bi-arrow-up-circle-fill me-1"></i>Please Upload MG & IRT File</span></span></label>
+        <input type="file" id="mgIrtFile" class="form-control rounded-pill" accept=".csv,.xlsx,.xls" />
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <button id="mgIrtclearBtn" class="btn btn-secondary rounded-pill fw-bold d-flex align-items-center">
+          <span class="material-icons">refresh</span>
+        </button>
+        <button id="runValidation" class="btn btn-custom rounded-pill fw-bold d-flex align-items-center gap-1">
+          <span class="material-icons">check_circle</span>
+          Validate
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div id="mgIrtCardHead" class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+      <span>MG & IRT Validation - Match Log</span>
+      <span id="mgIssueCount" class="d-flex align-items-center"></span>
+    </div>
+    <div class="card-body">
+      <div id="validationResults" class="table-responsive">
+        Upload DI file and click validate to display matches
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Info Button -->
+<button id="infoBtn" type="button"
+        class="btn btn-primary rounded-circle shadow"
+        style="position:fixed; bottom:50px; right:10px; z-index:1050; width:32px; height:32px; padding:0;"
+        data-bs-toggle="popover"
+        data-bs-placement="top"
+        data-bs-trigger="focus"
+        title=""
+        data-bs-content="">
+  <span class="material-icons">info</span>
+</button>
+
+<!-- Floating Status Bar -->
+<div id="statusBar" class="d-flex justify-content-between align-items-center px-3 py-2 bg-dark text-white">
+  <span id="issueCount" class="d-flex align-items-center">
+    <span class="material-icons-outlined me-1" style="font-size: 20px">info</span>
+    <span>Click start to begin</span>
+  </span>
+
+  <div class="d-flex align-items-center">
+
+    <!-- XLSX Mode Toggle -->
+    <div class="d-flex align-items-center gap-2" id="xlsxToggleWrapper" style="display:none;">
+      <span class="material-icons-outlined" style="font-size:18px;">table_view</span>
+      <span id="xlsxToggleLabel">XLSX Mode</span>
+      <div class="form-check form-switch mb-0">
+        <input class="form-check-input" type="checkbox" id="xlsxToggle" role="switch" />
+      </div>
+    </div>
+
+    <!-- More Options Dropdown -->
+    <div class="dropup" id="moreOptionsDropdown">
+      <button class="btn btn-sm dropdown-toggle d-flex align-items-center gap-1"
+              type="button" id="moreOptionsBtn"
+              data-bs-toggle="dropdown" aria-expanded="false"
+              style="font-size:0.78rem; color:#adb5bd; background:transparent; border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:0.25rem 0.65rem;">
+        More Options
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end more-options-menu">
+        <li id="mgIrtDownloadItem">
+          <a class="dropdown-item d-flex align-items-center gap-2"
+            href="https://nielsenenterprise-my.sharepoint.com/:x:/g/personal/aakash_subramonian_nielseniq_com/IQAF4KtpsMc6QKcf86OxU2UJAcabAkAhOi5wPIB-5kzPOsw?e=nd1MHe" target="_blank">
+            <span class="material-icons-outlined" style="font-size:17px;">file_download</span>
+            Get MG & IRT
+          </a>
+        </li>
+        <li>
+          <a class="dropdown-item d-flex align-items-center gap-2"
+            href="#" data-bs-toggle="modal" data-bs-target="#bugReportModal">
+            <span class="material-icons-outlined" style="font-size:17px;">bug_report</span>
+            Report Bugs
+          </a>
+        </li>
+        <li id="clearCacheItem" style="display: none;">
+          <a class="dropdown-item d-flex align-items-center gap-2"
+            href="#" id="clearCacheBtn">
+            <span class="material-icons-outlined" style="font-size:17px;">delete_forever</span>
+            Clear Cache
+          </a>
+        </li>
+      </ul>
+    </div>
+    <span style="font-size: small" id="supportText" class="ms-3">Questions or feedback? Contact <b>Aakash</b></span>
+  </div>
+</div>
+
+<!-- MG & IRT Download Modal -->
+<div class="modal fade" id="mgIrtDownloadModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title d-flex align-items-center">
+          <span class="material-icons me-2 text-primary">download</span>
+          MG & IRT Reference File
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center py-4">
+        <p class="text-muted mb-4">Download the latest MG & IRT reference file to use with this tool.</p>
+        <a href="YOUR_SHARED_DRIVE_LINK_HERE" target="_blank" class="btn btn-custom rounded-pill px-4 fw-bold">
+          <span class="material-icons align-middle me-1">file_download</span>
+          Download MG & IRT File
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Notify toast -->
+<div class="toast-container" id="notifyContainer">
+  <div id="notifyToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-header">
+      <strong class="me-auto">⚠️ Notice</strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body">
+      Matches are based on comparison only. 
+      Please confirm the business's official website before updating MG & IRT in TD.
+    </div>
+  </div>
+</div>
+
+<!-- Copy toast -->
+<div class="position-fixed" style="z-index: 1055; right: .5rem; bottom: 3rem;">
+  <div id="copyToast" class="toast border-0 rounded-pill w-auto" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex justify-content-center align-items-center px-3 py-2">
+      <span id="copyToastMessage">Local Codes copied successfully!</span>
+    </div>
+  </div>
+</div>
+
+<!-- Bug Report Modal -->
+<div class="modal fade" id="bugReportModal" tabindex="-1" aria-labelledby="bugReportModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form action="https://formspree.io/f/xzdjpnya" method="POST" enctype="multipart/form-data">
+        <div class="modal-header">
+          <h5 class="modal-title" id="bugReportModalLabel">Report a Bug</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="userEmail" class="form-label">Your Email</label>
+            <input type="email" class="form-control" id="userEmail" name="email" required />
+          </div>
+          <div class="mb-3">
+            <label for="bugMessage" class="form-label">Describe the issue</label>
+            <textarea class="form-control" id="bugMessage" name="message" rows="4" required></textarea>
+          </div>
+          <div class="mb-3">
+            <label for="bugFile" class="form-label">Attach a file (CSV or image)</label>
+            <input type="file" class="form-control" id="bugFile" name="file" accept=".csv,image/*" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary rounded-pill">Submit Report</button>
+          <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/app.js"></script>
+<script src="js/mgirt-validation.js?v=4" defer></script>
+</body>
+</html>
