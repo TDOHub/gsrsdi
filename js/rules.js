@@ -654,6 +654,14 @@ function checkNameFormat(row) {
       };
     }
 
+    if (word.toLowerCase() === "distribution" || word.toLowerCase() === "distributors" || word.toLowerCase === "distributor") {
+      return {
+        status: "WARN",
+        rule: "Banner Rule",
+        message: `Please verify signboard "${word} should be Distributing"`
+      }
+    }
+
     // "&" is always valid
     if (word === "&") continue;
 
@@ -751,6 +759,7 @@ function nullSupplier(row) {
   const hbcsupp = (row["HBC Supplier Number"] || "").trim();
   const frozensupp = (row["Frozen Supplier Number"] || "").trim();
   const trade = (row["Local Trade Channel"] || "").trim();
+  const channel = (row["Local Sub Channel"] || "").trim();
 
   const mgLocalCode = (row["MG Local Code"] || "").trim();
   const irtLocalCode = (row["IRT Local Code"] || "").trim();
@@ -762,24 +771,50 @@ function nullSupplier(row) {
 
   // Helper: check if a supplier field is empty
   const isEmpty = (val) => !val;
+  
+  switch (channel) {
 
-  switch (trade) {
-    case "[11] Pet":
-      if (isEmpty(grocerysupp)) {
-        return {
-          status: "FAIL",
-          rule: "Null Supplier",
-          message: "Pet Stores require Grocery suppliers",
-        };
-      }
-      break;
-      
     case "[07] Convenience Stores":
       if (isEmpty(grocerysupp) || isEmpty(confectionsupp)) {
         return {
           status: "FAIL",
           rule: "Null Supplier",
           message: "Convenience Stores require Grocery & Confection suppliers",
+        };
+      }
+      break;
+
+    case "[1] Pet Super Store":
+      if (isEmpty(grocerysupp)) {
+        return {
+          status: "WARN",
+          rule: "Null Supplier",
+          message: "Please verify if supplier is available",
+        };
+      }   
+      break;
+
+    case "[2] Neighborhood Pet":
+      if (isEmpty(grocerysupp)) {
+        return {
+          status: "WARN",
+          rule: "Null Supplier",
+          message: "Please verify if supplier is available",
+        };
+      }   
+      break;
+
+    default:
+      return { status: "PASS", rule: "Null Supplier", message: "" };
+  }
+
+  switch (trade) {
+    case "[11] Pet":
+      if (isEmpty(grocerysupp)) {
+        return {
+          status: "WARN",
+          rule: "Null Supplier",
+          message: "Please verify ",
         };
       }
       break;
