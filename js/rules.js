@@ -658,7 +658,7 @@ function checkNameFormat(row) {
       return {
         status: "WARN",
         rule: "Banner Rule",
-        message: `Please verify signboard "${word} should be Distributing"`
+        message: `Please verify signboard. "${word}" should be Distributing`
       }
     }
 
