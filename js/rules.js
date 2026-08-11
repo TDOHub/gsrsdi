@@ -774,7 +774,7 @@ function nullSupplier(row) {
   
   switch (channel) {
 
-    case "[07] Convenience Stores":
+    case "[7] Convenience Stores":
       if (isEmpty(grocerysupp) || isEmpty(confectionsupp)) {
         return {
           status: "FAIL",
