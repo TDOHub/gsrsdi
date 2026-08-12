@@ -87,6 +87,7 @@ const TAB_ORDER = [
     "Null Keyfacts",
     "BWL State Law",
     "Food Type",
+    "Pharmacy Flag",
     "Null Supplier",
     "MG/Banner Mismatch",
     "Incorrect Trade",
