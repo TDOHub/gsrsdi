@@ -249,7 +249,7 @@ function checkPharmacy(row) {
     "[08] Mass Merchandise Stores",
     "[07] Convenience Stores",
     "[05] Grocery Stores",
-    "[03] Drug Stores & Pharmacies",
+    "[03] Drug Stores and Pharmacies",
     "[01] WholeSale Clubs"
   ];
 
@@ -276,7 +276,7 @@ function checkPharmacy(row) {
 
     // Drug Stores & Pharmacies must be Y
     if (
-      tradeChannel === "[03] Drug Stores & Pharmacies" &&
+      tradeChannel === "[03] Drug Stores and Pharmacies" &&
       pharmacyFlag !== "Y"
     ) {
       return {
