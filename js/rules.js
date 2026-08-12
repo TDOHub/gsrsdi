@@ -236,6 +236,76 @@ function incorrectException(row) {
   return { status: "PASS", rule: "Exception Code", message: "" };
 }
 
+// Pharmacy Flag
+
+function checkPharmacy(row) {
+
+  const status = row["Status"] || "";
+  const tradeChannel = row["Local Trade Channel"] || "";
+  const subChannel = row["Local Sub Channel"] || "";
+  const pharmacyFlag = row["Pharmacy"] || "";
+
+  const validTradeChannels = [
+    "[08] Mass Merchandise Stores",
+    "[07] Convenience Stores",
+    "[05] Grocery Stores",
+    "[03] Drug Stores & Pharmacies",
+    "[01] WholeSale Clubs"
+  ];
+
+  const validSubChannels = [];
+
+  if (validTradeChannels.includes(tradeChannel)) {
+
+    // Null Check
+    if (isNull(pharmacyFlag)) {
+      if (status === "[OP] Open, Operating" || status === "[FO] Future Opening") {
+        return {
+          status: "FAIL",
+          rule: "Pharmacy Flag",
+          message: `Pharmacy Flag is missing for ${tradeChannel}`
+        };
+      } else {
+        return {
+          status: "WARN",
+          rule: "Pharmacy Flag",
+          message: `Pharmacy Flag is missing for ${tradeChannel}`
+        };
+      }
+    }
+
+    // Drug Stores & Pharmacies must be Y
+    if (
+      tradeChannel === "[03] Drug Stores & Pharmacies" &&
+      pharmacyFlag !== "Y"
+    ) {
+      return {
+        status: "FAIL",
+        rule: "Pharmacy Flag",
+        message: `Pharmacy Flag should be 'Y' for ${tradeChannel}`
+      };
+    }
+
+    // Convenience Stores must be N
+    if (
+      tradeChannel === "[07] Convenience Stores" &&
+      pharmacyFlag !== "N"
+    ) {
+      return {
+        status: "FAIL",
+        rule: "Pharmacy Flag",
+        message: `Pharmacy Flag should be 'N' for ${tradeChannel}`
+      };
+    }
+  }
+
+  return {
+    status: "PASS",
+    rule: "Pharmacy Flag",
+    message: ""
+  };
+}
+
 // Null Food Type
 function checkFoodType(row) {
 
@@ -1530,6 +1600,7 @@ window.rules = [
   checkVerificationDate,
   checkVerificationSource,
   checkIncorrectStatus,
+  checkPharmacy,
   checkFoodType,
   checkNameFormat,
   checkAddressRules,
