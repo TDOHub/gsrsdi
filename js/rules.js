@@ -724,7 +724,7 @@ function checkNameFormat(row) {
       };
     }
 
-    if (word.toLowerCase() === "distribution" || word.toLowerCase() === "distributors" || word.toLowerCase === "distributor") {
+    if (word.toLowerCase() === "distribution" || word.toLowerCase() === "distributors" || word.toLowerCase() === "distributor") {
       return {
         status: "WARN",
         rule: "Banner Rule",
@@ -1001,7 +1001,7 @@ function incorrectSupplier(row) {
   }
 
   // --- Step 2: Trade/Channel rule ---
-  if (trade === "[09] Pet Stores") {
+  if (trade === "[11] Pet") {
     if (channel !== allowedPetChannel && hasSupplier) {
       return {
         status: status === "[TC] Closed" ? "WARN" : "FAIL",
