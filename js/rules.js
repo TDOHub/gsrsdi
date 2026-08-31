@@ -249,8 +249,11 @@ function checkPharmacy(row) {
     "[08] Mass Merchandise Stores",
     "[07] Convenience Stores",
     "[05] Grocery Stores",
-    "[03] Drug Stores and Pharmacies",
-    "[01] WholeSale Clubs"
+    "[03] Drug Stores & Pharmacies",
+    "[01] WholeSale Clubs",
+    "[02] Liquor, Wine and Beer Stores",
+    "[06] Category Killers",
+    "[04] Cigarette Outlets"
   ];
 
   const validSubChannels = [];
@@ -276,7 +279,7 @@ function checkPharmacy(row) {
 
     // Drug Stores & Pharmacies must be Y
     if (
-      tradeChannel === "[03] Drug Stores and Pharmacies" &&
+      tradeChannel === "[03] Drug Stores & Pharmacies" &&
       pharmacyFlag !== "Y"
     ) {
       return {
@@ -288,8 +291,12 @@ function checkPharmacy(row) {
 
     // Convenience Stores must be N
     if (
-      tradeChannel === "[07] Convenience Stores" &&
-      pharmacyFlag !== "N"
+      (
+      tradeChannel === "[07] Convenience Stores" || 
+      tradeChannel === "[02] Liquor, Wine and Beer Stores" || 
+      tradeChannel === "[06] Category Killers" || 
+      tradeChannel === "[04] Cigarette Outlets"
+      ) && pharmacyFlag !== "N"
     ) {
       return {
         status: "FAIL",
