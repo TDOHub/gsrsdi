@@ -94,15 +94,26 @@ function incorrectTrade(row) {
   const subChannel = (row["Local Sub Channel"] || "").trim();
   const name = (row["Name"] || "").toLowerCase().trim();
   const status = (row["Status"] || "").trim();
+  const keywords = ["distributing", "distributor", "distributors", "distribution"];
 
   if (row["Status"] === "[DUP] Duplicate" ) return { status: "PASS", rule: "Duplicate", message: "" }; // skip duplicate
+
+  // distributor banner and trade mismatch
+  const hasKeyword = keywords.some(keyword => name.includes(keyword));
+  if (hasKeyword && subChannel !== "[R] Distributor/SubDistributor") {
+    return {
+      status: "FAIL",
+      rule: "Incorrect Trade",
+      message: `Trade ${subChannel} & Banner ${name} mismatch`
+    };
+  }
   
   // Client Internal banner and trade name mismatch
   if (subChannel === "[K] Client Internal" && name !== "client internal" || name === "client internal" && subChannel !== "[K] Client Internal") {
     return {
       status: "FAIL",
       rule: "Incorrect Trade",
-      message: `Trade ${subChannel} & Banner ${name} mismatch`
+      message: `Trade (${subChannel}) & Banner (${name}) mismatch`
     };
   }
 
@@ -111,7 +122,7 @@ function incorrectTrade(row) {
     return {
       status: "FAIL",
       rule: "Incorrect Trade",
-      message: `Trade ${subChannel} & Banner ${name} mismatch`
+      message: `Trade (${subChannel}) & Banner (${name}) mismatch`
     };
   }
 
@@ -120,7 +131,7 @@ function incorrectTrade(row) {
     return {
       status: "FAIL",
       rule: "Incorrect Trade",
-      message: `Trade ${subChannel} & Banner ${name} mismatch`
+      message: `Trade (${subChannel}) & Banner (${name}) mismatch`
     };
   }
 
