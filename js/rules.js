@@ -104,7 +104,7 @@ function incorrectTrade(row) {
     return {
       status: "FAIL",
       rule: "Incorrect Trade",
-      message: `Trade ${subChannel} & Banner ${name} mismatch`
+      message: `Trade (${subChannel}) & Banner (${name}) mismatch`
     };
   }
   
