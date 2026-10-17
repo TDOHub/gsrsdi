@@ -109,7 +109,10 @@ function incorrectTrade(row) {
   }
   
   // Client Internal banner and trade name mismatch
-  if (subChannel === "[K] Client Internal" && name !== "client internal" || name === "client internal" && subChannel !== "[K] Client Internal") {
+  if (
+    (subChannel === "[K] Client Internal" && name !== "client internal") ||
+    (name === "client internal" && subChannel !== "[K] Client Internal")
+  ) {
     return {
       status: "FAIL",
       rule: "Incorrect Trade",
@@ -118,7 +121,10 @@ function incorrectTrade(row) {
   }
 
   // Special Event banner and trade name mismatch
-  if (subChannel === "[N] Special Event" && name !== "special event" || name === "special event" && subChannel !== "[N] Special Event") {
+  if (
+    (subChannel === "[N] Special Event" && name !== "special event") || 
+    (name === "special event" && subChannel !== "[N] Special Event")
+  ) {
     return {
       status: "FAIL",
       rule: "Incorrect Trade",
@@ -127,7 +133,10 @@ function incorrectTrade(row) {
   }
 
   // House Account banner and trade name mismatch
-  if (subChannel === "[P] House Account" && name !== "house account") {
+  if (
+      (subChannel === "[P] House Account" && name !== "house account") || 
+      (name === "house account" && subChannel !== "[P] House Account")
+  ) {
     return {
       status: "FAIL",
       rule: "Incorrect Trade",
