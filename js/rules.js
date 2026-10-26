@@ -1479,7 +1479,7 @@ const stateCannabisRules = {
   AK: "Combination", AL: "Medical", AR: "Medical", AZ: "Combination", CA: "Combination",
   CO: "Combination", CT: "Combination", DC: "Medical", DE: "Medical", FL: "Medical",
   GA: "No", HI: "Medical", IA: "Medical", ID: "No", IL: "Combination",
-  IN: "No", KS: "No", KY: "No", LA: "Medical", MA: "Combination",
+  IN: "No", KS: "No", KY: "Medical", LA: "Medical", MA: "Combination",
   MD: "Combination", ME: "Combination", MI: "Combination", MN: "Combination", MO: "Combination",
   MS: "Medical", MT: "Combination", NC: "No", ND: "Medical", NE: "No",
   NH: "Medical", NJ: "Combination", NM: "Combination", NV: "Combination", NY: "Combination",
