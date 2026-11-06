@@ -349,7 +349,7 @@ function checkFoodType(row) {
       if (status === "[OP] Open, Operating" || status === "[FO] Future Opening") {
         return { status: "FAIL", rule: "Food Type", message: "Food Type missing for On Premise TD" };
       } else {
-        return { status: "WARN", rule: "Food Type", message: "Food Type missing for On Premise TD" };
+        return { status: "PASS", rule: "Food Type", message: "Food Type missing for On Premise TD" };
       }
     }
   }
