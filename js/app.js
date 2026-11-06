@@ -520,6 +520,7 @@ document.getElementById("clearBtn").addEventListener("click", function () {
   document.getElementById("diCardHead").classList.add("bg-secondary");
   document.getElementById("results").innerHTML = "Upload DI file to display defects";
   document.getElementById("diIssueCount").innerHTML = "";
+  document.getElementById("copyCodesBtn").classList.add("d-none");
 
   defectLogs    = [];
   groupedErrors = {};
